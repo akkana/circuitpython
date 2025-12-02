@@ -11,6 +11,9 @@ import time
 import board
 import digitalio
 
+# For the feather's three buttons:
+import rev_tft_feather
+
 import adafruit_scd4x
 
 from adafruit_max1704x import MAX17048
@@ -21,6 +24,7 @@ import terminalio
 from adafruit_display_text import label
 
 display = board.DISPLAY
+display.brightness = .15
 
 batterymon = MAX17048(board.I2C())
 
@@ -28,7 +32,7 @@ batterymon = MAX17048(board.I2C())
 TEXT_COLOR = 0xFFFFFF
 
 # max threshold: background color
-THRESHOLDS = [      400,      500,      600     , 800    , 1000    , 1200 ]
+THRESHOLDS = [      500,      600,      700,      800,     1000,     1200 ]
 BG_COLORS  = [ 0x000000, 0x600000, 0x900000, 0xa00000, 0xc00000, 0xf00000 ]
 
 # Make the display context
@@ -77,33 +81,45 @@ print("Waiting for first measurement....")
 
 ##################################
 # Set up the button(s)
-button = digitalio.DigitalInOut(board.BUTTON)
-button.switch_to_input(pull=digitalio.Pull.UP)
+rev_tft_feather.initialize()
 
 
 ##################################
 # Finally, the main loop
 
 while True:
-    if scd4x.data_ready:
-        # co2_label.text = "CO2: %d ppm\nTemp: %d°F\nHum: %d%%" % (
-        #     scd4x.CO2, int(scd4x.temperature * (212-32)/100) + 32,
-        #     scd4x.relative_humidity)
-        co2_label.text = "CO2: %d ppm" % (scd4x.CO2)
-        if not button.value:
-            other_label.text = "\nBattery: %d%%" % int(batterymon.cell_percent)
-        else:
-            other_label.text = "Temp: %d° F\nHum: %d%%" % (
-                int(scd4x.temperature * (212-32)/100) + 32,
-                scd4x.relative_humidity)
-        # Do something to change the color of bg_tilegrid here
-        bgindex = get_bg_color(scd4x.CO2)
-        print("Color would be 0x%x" % bgindex)
-        # co2_label.background_color = BG_COLORS[bgindex]
-        bg_bitmap.fill(bgindex)
+    if not scd4x.data_ready:
+        time.sleep(.5)
+        continue
 
-        print("CO2: %d ppm" % scd4x.CO2)
-        print("Temperature: %0.1f *C" % scd4x.temperature)
-        print("Humidity: %0.1f %%" % scd4x.relative_humidity)
-        print()
-    time.sleep(1)
+    # If buttons 0 or 2 are pressed, adjust screen brightness
+    d0, d1, d2 = rev_tft_feather.read_buttons()
+    if d0:
+        newbrightness = display.brightness * 2
+    elif d2:
+        newbrightness = display.brightness / 2
+    else:
+        newbrightness = None
+    if newbrightness:
+        if newbrightness < .05:
+            newbrightness = .05
+        elif newbrightness > 1:
+            newbrightness = 1
+        display.brightness = newbrightness
+
+    co2_label.text = "CO2: %d ppm" % (scd4x.CO2)
+    other_label.text = "Temp: %d° F     BAT\nHum: %d%%       %d%%" % (
+        int(scd4x.temperature * (212-32)/100) + 32,
+        scd4x.relative_humidity,
+        int(batterymon.cell_percent))
+
+    # Change the background color according to the CO2 reading
+    bgindex = get_bg_color(scd4x.CO2)
+    # co2_label.background_color = BG_COLORS[bgindex]
+    bg_bitmap.fill(bgindex)
+
+    # print("CO2: %d ppm" % scd4x.CO2)
+    # print("Temperature: %0.1f *C" % scd4x.temperature)
+    # print("Humidity: %0.1f %%" % scd4x.relative_humidity)
+    # print()
+    time.sleep(.5)
