@@ -45,7 +45,6 @@ for i, color in enumerate(BG_COLORS):
     color_palette[i] = BG_COLORS[i]
 
 bg_bitmap = displayio.Bitmap(display.width, display.height, len(BG_COLORS))
-# maingroup.append(bg_bitmap)
 maingroup.append(displayio.TileGrid(bg_bitmap, pixel_shader=color_palette))
 
 # Set up two labels, one for CO2 and one for everything else
